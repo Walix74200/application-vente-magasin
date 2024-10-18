@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <!-- Include Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* Custom styles for dark theme */
+        .dark {
+            background-color: #1a202c;
+            color: #cbd5e0;
+        }
+        .grid-item {
+            grid-row: span 3;
+        }
+        /* Hide all sections initially */
+        section {
+            display: none;
+        }
+
+        /* Show active section */
+        section.active {
+            display: block;
+        }
+
+        /* Make the main content area scrollable */
+        main {
+            overflow-y: auto;
+            height: calc(100vh - 2rem); /* Adjust height to fit the screen */
+        }
+
+        /* Make the panier section scrollable */
+        aside#panier {
+            height: calc(100vh - 2rem); /* Adjust height to fit the screen */
+            overflow-y: auto;
+        }
+            /* New styles for larger category buttons */
+    .category-button {
+        padding: 1.5rem 3rem; /* Increase padding */
+        font-size: 1.5rem; /* Increase font size */
+        width: 100%; /* Make buttons full width */
+    }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+
+<div class="flex h-screen">
+    <!-- Sidebar -->
+    <aside class="bg-gray-200 dark:bg-gray-900 w-1/8 py-8 px-4">
+        <ul>
+            <li><a href="#" onclick="showSection('magasin')" class="block py-2 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700">Commande</a></li>
+            <li><a href="#" onclick="showSection('historique')" class="block py-2 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700">Historique</a></li>
+            <li><a href="#" onclick="showSection('dashboard')" class="block py-2 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700">Dashboard</a></li>
+            <li><a href="#" onclick="showSection('stock')" class="block py-2 px-4 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700">Stock</a></li>
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-4">
+        <!-- Magasin Section -->
+        <section id="magasin" class="active">
+            <!-- Category Buttons -->
+            <div id="category-buttons" class="mb-4">
+                <!-- Category buttons will be dynamically inserted here -->
+            </div>
+
+            <!-- Inventory Display Grid -->
+            <div id="inventory-grid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Inventory items will be dynamically inserted here -->
+            </div>
+
+            <!-- Back to Categories Button -->
+            <button id="back-to-categories" class="hidden bg-blue-500 text-white px-6 py-3 rounded-md hover:bg-blue-600 mt-2" onclick="showCategories()">Back to Categories</button>
+        </section>
+
+<section id="historique">
+
+        <!-- Filter section -->
+        <label for="filter-category">Filter by Category:</label>
+        <select id="filter-category">
+            <option value="all">All</option>
+            <option value="Pommes">Pommes</option>
+            <option value="Poires">Poires</option>
+            <option value="Jus">Jus</option>
+            <option value="Autres produits">Autres produits</option>
+        </select>
+
+        <!-- Button to fetch today’s sales -->
+        <button id="fetch-today-sales">Today's Sales</button>
+
+        <!-- Button to export to Excel -->
+        <button id="export-excel">Export to Excel</button>
+
+        <!-- Tables for sales -->
+        <h2>Today's Sales</h2>
+        <table id="today-sales">
+            <thead>
+                <tr>
+                    <th data-column="Date" data-order="asc">Date <span class="arrow"></span></th>
+                    <th data-column="Item_name" data-order="asc">Item Name <span class="arrow"></span></th>
+                    <th data-column="Quantity_Sold" data-order="asc">Quantity Sold <span class="arrow"></span></th>
+                    <th data-column="Sale_Amount" data-order="asc">Sale Amount <span class="arrow"></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Data will be dynamically inserted here -->
+            </tbody>
+        </table>
+
+        <h2>All Sales</h2>
+        <table id="all-sales">
+            <thead>
+                <tr>
+                    <th data-column="Date" data-order="asc">Date <span class="arrow"></span></th>
+                    <th data-column="Item_name" data-order="asc">Item Name <span class="arrow"></span></th>
+                    <th data-column="Quantity_Sold" data-order="asc">Quantity Sold <span class="arrow"></span></th>
+                    <th data-column="Sale_Amount" data-order="asc">Sale Amount <span class="arrow"></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Data will be dynamically inserted here -->
+            </tbody>
+        </table>
+    </section>
+
+    <script>
+        const apiUrl = 'http://127.0.0.1:5004/history'; // URL of Flask API
+
+        document.getElementById('fetch-today-sales').addEventListener('click', async () => {
+    const selectedDate = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    const salesData = await fetchSalesData(selectedDate);
+    populateTable(salesData, 'today-sales');
+});
+
+async function fetchSalesData(date) {
+    const url = `http://127.0.0.1:5004/history?date=${date}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    return data;
+}
+
+function populateTable(data, tableId) {
+    const tableBody = document.getElementById(tableId).querySelector('tbody');
+    tableBody.innerHTML = ''; // Clear previous data
+    data.forEach(sale => {
+        const row = `<tr>
+            <td>${sale.Date}</td>
+            <td>${sale.Item_name}</td>
+            <td>${sale.Quantity_Sold}</td>
+            <td>${sale.Sale_Amount}</td>
+        </tr>`;
+        tableBody.innerHTML += row;
+    });
+}
+        // Sort table data
+        function sortTable(tableId, column, order) {
+            const table = document.getElementById(tableId);
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            rows.sort((a, b) => {
+                const aText = a.querySelector(`td:nth-child(${column + 1})`).innerText;
+                const bText = b.querySelector(`td:nth-child(${column + 1})`).innerText;
+
+                if (!isNaN(aText) && !isNaN(bText)) {
+                    return order === 'asc' ? aText - bText : bText - aText;
+                }
+
+                return order === 'asc' ? aText.localeCompare(bText) : bText.localeCompare(aText);
+            });
+
+            // Rebuild the table with sorted rows
+            tbody.innerHTML = '';
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        // Add sorting functionality to table headers
+        function addSorting(tableId) {
+            const headers = document.querySelectorAll(`#${tableId} th`);
+            headers.forEach((header, index) => {
+                header.addEventListener('click', () => {
+                    const order = header.getAttribute('data-order');
+                    sortTable(tableId, index, order);
+
+                    // Toggle the order
+                    const newOrder = order === 'asc' ? 'desc' : 'asc';
+                    header.setAttribute('data-order', newOrder);
+
+                    // Update the arrow
+                    updateArrow(header, newOrder);
+                });
+            });
+        }
+
+        // Update the arrow direction on sorting
+        function updateArrow(header, order) {
+            const arrow = header.querySelector('.arrow');
+            arrow.classList.remove('asc', 'desc');
+            arrow.classList.add(order);
+        }
+
+        // Fetch today's sales on button click
+        document.getElementById('fetch-today-sales').addEventListener('click', async () => {
+            const todaySalesData = await fetchSalesData(true);
+            populateTable(todaySalesData, 'today-sales');
+        });
+
+        // Fetch all sales and populate the 'all-sales' table on page load
+        window.onload = async () => {
+            const allSalesData = await fetchSalesData();
+            populateTable(allSalesData, 'all-sales');
+
+            // Add sorting functionality after the table is populated
+            addSorting('all-sales');
+            addSorting('today-sales');
+        };
+
+        // Export table data to Excel
+        document.getElementById('export-excel').addEventListener('click', function () {
+            const table = document.getElementById('all-sales');
+            const tableHtml = table.outerHTML.replace(/ /g, '%20');
+            const a = document.createElement('a');
+            a.href = 'data:application/vnd.ms-excel,' + tableHtml;
+            a.download = 'sales_data.xls';
+            a.click();
+        });
+    </script>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            cursor: pointer;
+        }
+        .arrow {
+            display: inline-block;
+            margin-left: 5px;
+        }
+        .arrow.asc::after {
+            content: '▲'; /* Up arrow */
+        }
+        .arrow.desc::after {
+            content: '▼'; /* Down arrow */
+        }
+    </style>
+
+   <section id="dashboard">
+        <h1 class="text-2xl font-bold mb-4">Dashboard</h1>
+
+
+
+        <div class="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col items-center">
+                <h2 class="text-lg font-bold mb-2">Sales Chart</h2>
+                <canvas id="salesChart" class="w-full h-64"></canvas>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col items-center">
+                <h2 class="text-lg font-bold mb-2">Category Chart</h2>
+                <canvas id="categoryChart" class="w-full h-64"></canvas>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col items-center">
+                <h2 class="text-lg font-bold mb-2">Best-Selling Products</h2>
+                <canvas id="bestSellingChart" class="w-full h-64"></canvas>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col items-center">
+                <h2 class="text-lg font-bold mb-2">Daily Sales Trend</h2>
+                <canvas id="dailySalesChart" class="w-full h-64"></canvas>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col items-center">
+                <h2 class="text-lg font-bold mb-2">Top Selling Products</h2>
+                <canvas id="topProductsChart" class="w-full h-64"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            const salesCtx = document.getElementById('salesChart').getContext('2d');
+            const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+            const dailySalesCtx = document.getElementById('dailySalesChart').getContext('2d');
+            const topProductsCtx = document.getElementById('topProductsChart').getContext('2d');
+            const bestSellingCtx = document.getElementById('bestSellingChart').getContext('2d');
+
+            // Fetch sales data from the API
+            const fetchSalesData = async () => {
+                const response = await fetch('http://127.0.0.1:5004/history');
+                const data = await response.json();
+                return data;
+            };
+
+            // Process sales data for charts
+            const processSalesData = (salesData) => {
+                const salesChartData = {};
+                const categoryData = {};
+                const dailySalesData = {};
+                const topProductsData = {};
+
+                salesData.forEach(sale => {
+                    const date = new Date(sale.Date);
+                    const day = date.toISOString().split('T')[0]; // Format YYYY-MM-DD
+
+                    // Sales chart data
+                    const month = date.toLocaleString('default', { month: 'long' });
+                    if (!salesChartData[month]) {
+                        salesChartData[month] = 0;
+                    }
+                    salesChartData[month] += sale.Sale_Amount;
+
+                    // Daily sales trend
+                    if (!dailySalesData[day]) {
+                        dailySalesData[day] = 0;
+                    }
+                    dailySalesData[day] += sale.Sale_Amount;
+
+                    // Category data
+                    if (!categoryData[sale.Item_name]) {
+                        categoryData[sale.Item_name] = 0;
+                    }
+                    categoryData[sale.Item_name] += sale.Quantity_Sold;
+
+                    // Top selling products
+                    if (!topProductsData[sale.Item_name]) {
+                        topProductsData[sale.Item_name] = 0;
+                    }
+                    topProductsData[sale.Item_name] += sale.Quantity_Sold;
+
+                });
+
+                return { salesChartData, categoryData, dailySalesData, topProductsData };
+            };
+
+            // Initialize the charts with data
+            const initializeCharts = async (salesData) => {
+                const { salesChartData, categoryData, dailySalesData, topProductsData} = processSalesData(salesData);
+
+                // Prepare sales chart data
+                const salesLabels = Object.keys(salesChartData);
+                const salesValues = Object.values(salesChartData);
+
+                // Prepare category chart data
+                const categoryLabels = Object.keys(categoryData);
+                const categoryValues = Object.values(categoryData);
+
+                // Prepare daily sales trend data
+                const dailySalesLabels = Object.keys(dailySalesData);
+                const dailySalesValues = Object.values(dailySalesData);
+
+                // Prepare top products data
+                const topProductsLabels = Object.keys(topProductsData).sort((a, b) => topProductsData[b] - topProductsData[a]).slice(0, 5);
+                const topProductsValues = topProductsLabels.map(label => topProductsData[label]);
+
+                // Prepare best selling products data (for pie chart)
+                const bestSellingData = {};
+                topProductsLabels.forEach(label => {
+                    bestSellingData[label] = topProductsData[label];
+                });
+
+                const bestSellingLabels = Object.keys(bestSellingData);
+                const bestSellingValues = Object.values(bestSellingData);
+
+                // Sales Chart
+                new Chart(salesCtx, {
+                    type: 'line',
+                    data: {
+                        labels: salesLabels,
+                        datasets: [{
+                            label: 'Sales',
+                            data: salesValues,
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        }]
+                    }
+                });
+
+                // Category Chart
+                new Chart(categoryCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: categoryLabels,
+                        datasets: [{
+                            label: 'Categories',
+                            data: categoryValues,
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.2)',
+                                'rgba(54, 162, 235, 0.2)',
+                                'rgba(255, 206, 86, 0.2)',
+                                'rgba(75, 192, 192, 0.2)',
+                                'rgba(153, 102, 255, 0.2)',
+                                'rgba(255, 159, 64, 0.2)'
+                            ],
+                            borderColor: [
+                                'rgba(255, 99, 132, 1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(255, 206, 86, 1)',
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(153, 102, 255, 1)',
+                                'rgba(255, 159, 64, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    }
+                });
+
+                // Best-Selling Products Pie Chart
+                new Chart(bestSellingCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: bestSellingLabels,
+                        datasets: [{
+                            label: 'Best Selling Products',
+                            data: bestSellingValues,
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.2)',
+                                'rgba(54, 162, 235, 0.2)',
+                                'rgba(255, 206, 86, 0.2)',
+                                'rgba(75, 192, 192, 0.2)',
+                                'rgba(153, 102, 255, 0.2)'
+                            ],
+                            borderColor: [
+                                'rgba(255, 99, 132, 1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(255, 206, 86, 1)',
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(153, 102, 255, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    }
+                });
+
+                // Daily Sales Trend Chart
+                new Chart(dailySalesCtx, {
+                    type: 'line',
+                    data: {
+                        labels: dailySalesLabels,
+                        datasets: [{
+                            label: 'Daily Sales',
+                            data: dailySalesValues,
+                            borderColor: 'rgba(255, 159, 64, 1)',
+                            backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        }]
+                    }
+                });
+
+                // Top Selling Products Chart
+                new Chart(topProductsCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: topProductsLabels,
+                        datasets: [{
+                            label: 'Top Selling Products',
+                            data: topProductsValues,
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        }]
+                    }
+                });
+
+            };
+
+            // Filter function
+            const filterData = async () => {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+
+                const salesData = await fetchSalesData();
+                const filteredData = salesData.filter(sale => {
+                    const saleDate = new Date(sale.Date);
+                    return (!startDate || saleDate >= new Date(startDate)) &&
+                           (!endDate || saleDate <= new Date(endDate));
+                });
+
+                initializeCharts(filteredData);
+            };
+
+            // Attach event listener to filter button
+
+            // Initial chart setup
+            const salesData = await fetchSalesData();
+            initializeCharts(salesData);
+        });
+    </script>
+
+
+    <!-- Stock Section -->
+<section id="stock">
+    <h1 class="text-2xl font-bold mb-4">Stock Management</h1>
+
+    <!-- Create Category Form -->
+    <div class="mb-4">
+        <h2 class="text-xl font-bold mb-2">Create Category</h2>
+        <input type="text" id="category-name" placeholder="Category Name" class="border rounded-md p-2 mb-2">
+        <input type="number" id="category-id" placeholder="Category ID" class="border rounded-md p-2 mb-2">
+        <button class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600" onclick="createCategory()">Create Category</button>
+    </div>
+
+    <!-- Create Item Form -->
+    <div class="mb-4">
+        <h2 class="text-xl font-bold mb-2">Create Item</h2>
+        <input type="text" id="item-category" placeholder="Category" class="border rounded-md p-2 mb-2">
+        <input type="number" id="item-category-id" placeholder="Category ID" class="border rounded-md p-2 mb-2">
+        <input type="text" id="item-name" placeholder="Item Name" class="border rounded-md p-2 mb-2">
+        <input type="number" id="item-id" placeholder="Item ID" class="border rounded-md p-2 mb-2">
+        <input type="number" id="item-quantity" placeholder="Quantity Available" class="border rounded-md p-2 mb-2">
+        <input type="number" id="item-price" placeholder="Unit Price" class="border rounded-md p-2 mb-2">
+        <button class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600" onclick="createItem()">Create Item</button>
+    </div>
+
+    <!-- Add Item to Stock Form -->
+    <div class="mb-4">
+        <h2 class="text-xl font-bold mb-2">Add Item to Stock</h2>
+        <input type="number" id="stock-item-id" placeholder="Item ID" class="border rounded-md p-2 mb-2">
+        <input type="number" id="stock-quantity" placeholder="Quantity" class="border rounded-md p-2 mb-2">
+        <button class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600" onclick="addItemToStock()">Add to Stock</button>
+    </div>
+</section>
+            </main>
+    <!-- Right Sidebar for Panier -->
+<aside id="panier" class="bg-gray-200 dark:bg-gray-900 w-1/4 h-full py-8 px-4 flex flex-col justify-between">
+    <div>
+        <h2 class="text-xl font-bold mb-2">Panier</h2>
+        <ul id="panier-list" class="list-disc pl-5">
+            <!-- Selected items will be dynamically inserted here -->
+        </ul>
+        <!-- Current Total Display -->
+        <div id="current-total" class="mt-4 text-lg font-bold">Total: $0.00</div>
+    </div>
+    <!-- New buttons for Livraison, Magasin, and Valider Panier -->
+    <div class="mt-4 flex items-center justify-between">
+        <div class="flex items-center">
+            <label for="toggle-switch" class="mr-2">Livraison</label>
+            <input type="checkbox" id="toggle-switch" class="hidden" />
+            <label for="toggle-switch" class="bg-gray-300 dark:bg-gray-700 relative inline-block w-12 h-6 rounded-full cursor-pointer">
+                <span class="absolute left-1 top-1 bg-white dark:bg-gray-800 w-4 h-4 rounded-full transition-transform transform"></span>
+            </label>
+            <label for="toggle-switch" class="ml-2">Magasin</label>
+        </div>
+        <button id="valider-panier-button" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Valider Panier</button>
+    </div>
+</aside>
+</div>
+<style>
+    #toggle-switch:checked + label span {
+        transform: translateX(1.5rem);
+    }
+</style>
+<!-- Confirmation Modal -->
+<div id="confirmation-modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 w-1/3">
+        <h2 class="text-xl font-bold mb-4">Confirm Panier</h2>
+        <p>Are you sure you want to validate the panier?</p>
+        <div class="mt-4 flex justify-end">
+            <button id="cancel-button" class="bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-400 dark:hover:bg-gray-600 mr-2">Cancel</button>
+            <button id="confirm-button" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Theme Toggle Button -->
+<button id="theme-toggle" class="hidden fixed bottom-4 right-4 bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-4 py-2 rounded-lg shadow-md focus:outline-none">Toggle Theme</button>
+
+<script>
+
+    document.getElementById('valider-panier-button').addEventListener('click', function() {
+        document.getElementById('confirmation-modal').classList.remove('hidden');
+    });
+        document.getElementById('cancel-button').addEventListener('click', function() {
+        document.getElementById('confirmation-modal').classList.add('hidden');
+    });
+    // Theme toggle functionality
+    const toggleButton = document.getElementById('theme-toggle');
+    toggleButton.addEventListener('click', function() {
+        const body = document.body;
+        body.classList.toggle('dark');
+    });
+
+        document.getElementById('confirm-button').addEventListener('click', async function() {
+    document.getElementById('confirmation-modal').classList.add('hidden');
+    const panierList = document.getElementById('panier-list');
+    const items = panierList.querySelectorAll('li');
+
+    const sales = [];
+    for (const item of items) {
+        const itemId = parseInt(item.dataset.itemId);
+        const quantity = parseInt(item.dataset.quantity);
+        const itemName = item.textContent.split(' - ')[0];
+        const saleAmount = Math.ceil(parseFloat(item.textContent.match(/\$(\d+(\.\d+)?)/)[1]) * quantity);
+
+
+
+
+        sales.push({
+            Item_Id: itemId,
+            Item_name: itemName,
+            Quantity_Sold: quantity,
+            Sale_Amount: saleAmount,
+            Date: new Date().toISOString().split('T')[0] // Current date in YYYY-MM-DD format
+        });
+
+        try {
+            await removeItemFromStock(itemId, quantity);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to remove item from stock');
+            return;
+        }
+    }
+
+    // Send sales data to the API
+    try {
+        const response = await fetch('http://127.0.0.1:5004/history', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(sales)
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to add sales to history');
+        }
+
+        alert('Panier confirmed and sales history updated successfully');
+        location.reload();
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to update sales history');
+    }
+});
+
+    // Function to remove an item from stock
+    async function removeItemFromStock(itemId, quantity) {
+        const response = await fetch('http://194.87.217.68:5003/categories/items/inventory/remove_object', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                Item_Id: itemId,
+                Quantity: quantity
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to remove item from stock');
+        }
+
+        return response.json();
+    }
+    // Section switching functionality
+    function showSection(sectionId) {
+        // Hide all sections
+        const sections = document.querySelectorAll('section');
+        sections.forEach(section => {
+            section.classList.remove('active');
+        });
+
+        // Show the selected section
+        const selectedSection = document.getElementById(sectionId);
+        selectedSection.classList.add('active');
+    }
+
+    // Show categories
+    function showCategories() {
+        document.getElementById('category-buttons').classList.remove('hidden');
+        document.getElementById('inventory-grid').classList.add('hidden');
+        document.getElementById('back-to-categories').classList.add('hidden');
+    }
+
+    // Show items of a specific category
+    function showCategoryItems(categoryName) {
+        document.getElementById('category-buttons').classList.add('hidden');
+        document.getElementById('inventory-grid').classList.remove('hidden');
+        document.getElementById('back-to-categories').classList.remove('hidden');
+
+        const items = document.querySelectorAll('.grid-item');
+        items.forEach(item => {
+            if (item.dataset.category === categoryName) {
+                item.classList.remove('hidden');
+            } else {
+                item.classList.add('hidden');
+            }
+        });
+    }
+
+    // Function to update the current total
+    function updateTotal() {
+        const panierList = document.getElementById('panier-list');
+        let total = 0;
+        panierList.querySelectorAll('li').forEach(item => {
+            const itemText = item.textContent;
+            const match = itemText.match(/\$(\d+(\.\d+)?) x (\d+)/);
+            if (match) {
+                const price = parseFloat(match[1]);
+                const quantity = parseInt(match[3]);
+                total += price * quantity;
+            }
+        });
+        document.getElementById('current-total').textContent = `Total: $${total.toFixed(2)}`;
+    }
+
+    // Function to add an item to the panier
+    function addToPanier(itemName, itemPrice, quantity, itemId) {
+        const panierList = document.getElementById('panier-list');
+        const existingItem = panierList.querySelector(`li[data-item-id="${itemId}"]`);
+        const stockInput = document.getElementById(`quantity-${itemId}`);
+        const availableStock = parseInt(stockInput.max);
+
+        if (existingItem) {
+            const currentQuantity = parseInt(existingItem.dataset.quantity);
+            const newQuantity = currentQuantity + parseInt(quantity);
+            if (newQuantity > availableStock) {
+                alert('Not enough stock available');
+                return;
+            }
+            existingItem.dataset.quantity = newQuantity;
+            existingItem.querySelector('.item-quantity').textContent = `x ${newQuantity}`;
+        } else {
+            if (quantity > availableStock) {
+                alert('Not enough stock available');
+                return;
+            }
+            const listItem = document.createElement('li');
+            listItem.dataset.itemId = itemId;
+            listItem.dataset.quantity = quantity;
+            listItem.innerHTML = `${itemName} - $${itemPrice} <span class="item-quantity">x ${quantity}</span>`;
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.className = 'ml-2 text-red-500';
+            deleteButton.onclick = () => removeFromPanier(itemId, quantity);
+            listItem.appendChild(deleteButton);
+            panierList.appendChild(listItem);
+        }
+        updateTotal();
+    }
+
+    // Function to remove an item from the panier
+    function removeFromPanier(itemId, quantity) {
+        const panierList = document.getElementById('panier-list');
+        const item = panierList.querySelector(`li[data-item-id="${itemId}"]`);
+        if (item) {
+            const currentQuantity = parseInt(item.dataset.quantity);
+            const newQuantity = currentQuantity - quantity;
+            if (newQuantity <= 0) {
+                item.remove();
+            } else {
+                item.dataset.quantity = newQuantity;
+                item.querySelector('.item-quantity').textContent = `x ${newQuantity}`;
+            }
+            updateTotal();
+        }
+    }
+
+    // Function to update the quantity input value
+    function updateQuantity(inputId, step) {
+        const input = document.getElementById(inputId);
+        let value = parseInt(input.value) || 1;
+        value += step;
+        if (value < 1) value = 1; // Ensure value doesn't go below 1
+        input.value = value;
+    }
+
+    // Category class for rendering items
+    class Category {
+    constructor(name) {
+        this.name = name;
+        this.items = [];
+    }
+
+    addItem(item) {
+        this.items.push(item);
+    }
+
+    render() {
+        const grid = document.getElementById('inventory-grid');
+
+        this.items.forEach(item => {
+            if (!item.Item_name) {
+                return; // Skip items with empty names
+            }
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-4 grid-item hidden';
+            itemDiv.dataset.category = this.name;
+
+            // Dynamically generated item display
+            itemDiv.innerHTML = `
+                <h2 class="text-lg font-bold">${item.Item_name}</h2>
+                <p class="text-sm text-gray-600 dark:text-gray-300">ID: ${item.Item_Id}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300">Price: $${item.unit_price}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300">Stock: ${item.Quantity_Available}</p>
+
+                <!-- Quantity input with plus and minus buttons -->
+                <div class="flex items-center space-x-2">
+                    <button class="bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-3 py-1 rounded-md hover:bg-gray-400 dark:hover:bg-gray-600"
+                            onclick="updateQuantity('quantity-${item.Item_Id}', -1)">-</button>
+                    <input type="number" id="quantity-${item.Item_Id}" name="quantity" min="1" max="${item.Quantity_Available}" value="1"
+                           class="w-16 text-center border rounded-md bg-white dark:bg-gray-800 dark:text-gray-300 focus:ring-indigo-500 focus:border-indigo-500">
+                    <button class="bg-gray-300 dark:bg-gray-700 text-gray-800 dark:text-gray-300 px-3 py-1 rounded-md hover:bg-gray-400 dark:hover:bg-gray-600"
+                            onclick="updateQuantity('quantity-${item.Item_Id}', 1)">+</button>
+                </div>
+
+                <button class="bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600 mt-2"
+                        onclick="addToPanier('${item.Item_name}', ${item.unit_price}, document.getElementById('quantity-${item.Item_Id}').value, ${item.Item_Id})">
+                    Add to Panier
+                </button>
+            `;
+
+            // Append each item directly to the grid
+            grid.appendChild(itemDiv);
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('http://194.87.217.68:5003/categories/items/inventory/list')
+        .then(response => response.json())
+        .then(data => {
+            const categoryButtons = document.getElementById('category-buttons');
+            const categories = {};
+
+            data.forEach(item => {
+                if (!categories[item.Category]) {
+                    categories[item.Category] = new Category(item.Category);
+                }
+                categories[item.Category].addItem(item);
+            });
+
+            Object.values(categories).forEach(category => {
+                const button = document.createElement('button');
+                button.className = 'bg-blue-500 text-white px-6 py-3 rounded-md hover:bg-blue-600 mr-2 mb-2 category-button';
+                button.innerHTML = `${category.name} (ID: ${category.items[0].Category_Id})`;
+                button.onclick = () => showCategoryItems(category.name);
+                categoryButtons.appendChild(button);
+
+                category.render();
+            });
+        });
+
+        // Event listeners for new buttons
+        document.getElementById('livraison-button').addEventListener('click', function() {
+            alert('Livraison selected');
+        });
+
+        document.getElementById('magasin-button').addEventListener('click', function() {
+            alert('Magasin selected');
+        });
+
+        document.getElementById('valider-panier-button').addEventListener('click', function() {
+            document.getElementById('confirmation-modal').classList.remove('hidden');
+        });
+
+        // Event listener for the "Cancel" button in the modal
+        document.getElementById('cancel-button').addEventListener('click', function() {
+            document.getElementById('confirmation-modal').classList.add('hidden');
+        });
+
+        // Event listener for the "Confirm" button in the modal
+document.getElementById('confirm-button').addEventListener('click', function() {
+    document.getElementById('confirmation-modal').classList.add('hidden');
+    // Remove items from stock
+    const panierList = document.getElementById('panier-list');
+    panierList.querySelectorAll('li').forEach(item => {
+        const itemId = item.dataset.itemId;
+        const quantity = parseInt(item.dataset.quantity);
+        removeItemFromStock(itemId, quantity)
+    .then(() => {
+        // refresh the page
+        location.reload();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+    });
+
+    // Add your panier validation logic here
+});
+    });
+
+    // Function to create a category
+    function createCategory() {
+        const categoryName = document.getElementById('category-name').value;
+        const categoryId = document.getElementById('category-id').value;
+
+        fetch('http://194.87.217.68:5003/categories/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                Category: categoryName,
+                Category_Id: categoryId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert('Category created successfully');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+
+    // Function to create an item
+    function createItem() {
+        const category = document.getElementById('item-category').value;
+        const categoryId = document.getElementById('item-category-id').value;
+        const itemName = document.getElementById('item-name').value;
+        const itemId = document.getElementById('item-id').value;
+        const quantity = document.getElementById('item-quantity').value;
+        const price = document.getElementById('item-price').value;
+
+        fetch('http://194.87.217.68:5003/categories/items/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                Category: category,
+                Category_Id: categoryId,
+                Item_name: itemName,
+                Item_Id: itemId,
+                Quantity_Available: quantity,
+                unit_price: price
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert('Item created successfully');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+function removeItemFromStock(itemId, quantity) {
+    return fetch('http://194.87.217.68:5003/categories/items/inventory/remove_object', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            Item_Id: itemId,
+            Quantity: quantity
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Item removed from stock successfully');
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        throw error; // Re-throw the error to be caught in the calling function
+    });
+}
+    // Function to add an item to the stock
+    function addItemToStock() {
+        const itemId = document.getElementById('stock-item-id').value;
+        const quantity = document.getElementById('stock-quantity').value;
+
+        fetch('http://194.87.217.68:5003/categories/items/inventory/append_object', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                Item_Id: itemId,
+                Quantity: parseInt(quantity)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert('Item added to stock successfully');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+</script>
+</body>
+</html>
